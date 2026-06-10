@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests (86)
+        run: python -m unittest discover -s tests -v
+
+      - name: Quality gate — spelling benchmark
+        # thresholds set just below the measured baseline
+        # (95.5% detection, 87.8% top-1, 0.00% FP) so regressions fail CI
+        run: >
+          python scripts/evaluate.py --n 500 --seed 42
+          --min-detection 92 --min-top1 82 --max-fp 0.5
+
+      - name: Hunspell + web exports still build
+        run: |
+          python scripts/export_hunspell.py
+          python scripts/export_web.py

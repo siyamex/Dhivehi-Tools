@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="dv" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dhivehi Spell Checker</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1c2430; --muted: #67738a;
+    --line: #dde2ea; --accent: #1565c0;
+    --err-structure: rgba(229, 57, 53, .28);
+    --err-unknown: rgba(251, 140, 0, .30);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  .thaana, textarea, .backdrop, .word {
+    font-family: "MV Boli", "Faruma", "Noto Sans Thaana", sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 14px 22px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .stats { margin-inline-start: auto; color: var(--muted); font-size: 13px; }
+  main {
+    display: grid; grid-template-columns: 1fr 340px; gap: 18px;
+    padding: 18px 22px; max-width: 1200px; margin: 0 auto;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .editor-wrap {
+    position: relative; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  }
+  .backdrop, textarea {
+    direction: rtl; font-size: 24px; line-height: 2.1;
+    padding: 18px 20px; width: 100%; height: 420px;
+    white-space: pre-wrap; word-wrap: break-word; overflow-y: auto;
+  }
+  .backdrop {
+    position: absolute; inset: 0; color: transparent; pointer-events: none;
+    border: 0; margin: 0;
+  }
+  .backdrop mark { color: transparent; border-radius: 4px; }
+  .backdrop mark.structure { background: var(--err-structure); }
+  .backdrop mark.unknown   { background: var(--err-unknown); }
+  textarea {
+    position: relative; background: transparent; border: 0; resize: vertical;
+    outline: none; color: var(--ink); display: block;
+  }
+  .editor-foot {
+    display: flex; gap: 14px; align-items: center;
+    padding: 10px 16px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 13px; background: var(--panel);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .legend { display: flex; gap: 14px; align-items: center; }
+  .spinner { margin-inline-start: auto; }
+
+  .issues { display: flex; flex-direction: column; gap: 10px; }
+  .issues h2 { font-size: 14px; margin: 0 0 2px; color: var(--muted); font-weight: 600; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; cursor: pointer;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card .word { font-size: 22px; }
+  .card .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; color: #fff;
+    margin-inline-start: 8px; vertical-align: middle;
+  }
+  .badge.structure { background: #e53935; }
+  .badge.unknown   { background: #fb8c00; }
+  .card .msg { color: var(--muted); font-size: 12px; margin-top: 4px; direction: ltr; text-align: left; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    border: 1px solid var(--line); background: #eef3fb; color: var(--accent);
+    border-radius: 14px; padding: 3px 12px; font-size: 18px; cursor: pointer;
+  }
+  .chip:hover { background: var(--accent); color: #fff; }
+  .chip.add { background: transparent; color: var(--muted); font-size: 12px;
+              font-family: "Segoe UI", sans-serif; }
+  .chip.add:hover { background: var(--muted); color: #fff; }
+  .empty { color: var(--muted); font-size: 14px; padding: 18px; text-align: center;
+           background: var(--panel); border: 1px dashed var(--line); border-radius: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Dhivehi Spell Checker</h1>
+  <span class="sub">offline &middot; Thaana</span>
+  <span class="stats" id="stats"></span>
+</header>
+<main>
+  <section>
+    <div class="editor-wrap">
+      <div class="backdrop" id="backdrop"></div>
+      <textarea id="editor" spellcheck="false" lang="dv"
+        placeholder="މިތާ ދިވެހި ބަހުން ލިޔުއްވާ...">އަހަރެން ދިވެހ ބަސް ދަސްކުރަން. ސުކުރިއްޔާ!</textarea>
+    </div>
+    <div class="editor-foot">
+      <span class="legend">
+        <span><span class="dot" style="background:var(--err-structure)"></span> structure error</span>
+        <span><span class="dot" style="background:var(--err-unknown)"></span> unknown word</span>
+      </span>
+      <span class="spinner" id="status"></span>
+    </div>
+  </section>
+  <aside class="issues">
+    <h2 id="issuesTitle">Issues</h2>
+    <div id="issueList"></div>
+  </aside>
+</main>
+<script>
+"use strict";
+// When the page is served by the spell-check server itself, use relative
+// URLs. When opened any other way (file://, preview panes, etc.) there is
+// no usable base URL, so talk to the default local server directly.
+const params = new URLSearchParams(location.search);
+const API_BASE = params.get("api") ||
+  ((location.protocol === "http:" || location.protocol === "https:") && location.host
+    ? "" : "http://127.0.0.1:8765");
+
+const editor   = document.getElementById("editor");
+const backdrop = document.getElementById("backdrop");
+const list     = document.getElementById("issueList");
+const title    = document.getElementById("issuesTitle");
+const status   = document.getElementById("status");
+const statsEl  = document.getElementById("stats");
+
+let issues = [];
+let timer = null;
+let seq = 0;
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function api(path, body) {
+  const res = await fetch(API_BASE + path, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+function renderBackdrop(text) {
+  const sorted = [...issues].sort((a, b) => a.start - b.start);
+  let html = "", pos = 0;
+  for (const it of sorted) {
+    if (it.start < pos) continue;
+    html += escapeHtml(text.slice(pos, it.start));
+    const cls = it.status === "structure" ? "structure" : "unknown";
+    html += '<mark class="' + cls + '">' + escapeHtml(text.slice(it.start, it.end)) + "</mark>";
+    pos = it.end;
+  }
+  html += escapeHtml(text.slice(pos));
+  backdrop.innerHTML = html + "\n";   // trailing \n keeps last-line metrics equal
+  backdrop.scrollTop = editor.scrollTop;
+}
+
+function structureMessages(it) {
+  return (it.errors || []).map(e => e.message).join("; ");
+}
+
+function renderIssues() {
+  title.textContent = issues.length ? "Issues (" + issues.length + ")" : "Issues";
+  if (!issues.length) {
+    list.innerHTML = '<div class="empty">No spelling issues found ✓</div>';
+    return;
+  }
+  list.innerHTML = "";
+  for (const it of issues) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const badge = it.status === "structure" ? "structure" : "unknown";
+    let inner = '<span class="word">' + escapeHtml(it.word) + "</span>" +
+                '<span class="badge ' + badge + '">' + badge + "</span>";
+    const msg = structureMessages(it);
+    if (msg) inner += '<div class="msg">' + escapeHtml(msg) + "</div>";
+    inner += '<div class="chips">';
+    for (const s of (it.suggestions || [])) {
+      inner += '<button class="chip" data-act="apply" data-word="' +
+               escapeHtml(s.word) + '">' + escapeHtml(s.word) + "</button>";
+    }
+    if (it.status === "unknown") {
+      inner += '<button class="chip add" data-act="add">+ add to dictionary</button>';
+    }
+    inner += "</div>";
+    card.innerHTML = inner;
+    card.addEventListener("click", ev => {
+      const btn = ev.target.closest("button.chip");
+      if (btn && btn.dataset.act === "apply") {
+        applyReplacement(it, btn.dataset.word);
+      } else if (btn && btn.dataset.act === "add") {
+        addToDictionary(it.word);
+      } else {
+        editor.focus();
+        editor.setSelectionRange(it.start, it.end);
+      }
+    });
+    list.appendChild(card);
+  }
+}
+
+function applyReplacement(issue, replacement) {
+  const text = editor.value;
+  if (text.slice(issue.start, issue.end) !== issue.word) { check(); return; }
+  editor.value = text.slice(0, issue.start) + replacement + text.slice(issue.end);
+  check();
+}
+
+async function addToDictionary(word) {
+  try {
+    const r = await api("/api/add", { words: [word] });
+    statsEl.textContent = r.words + " words in lexicon";
+    check();
+  } catch (e) { status.textContent = "error: " + e.message; }
+}
+
+async function check() {
+  const mySeq = ++seq;
+  const text = editor.value;
+  status.textContent = "checking…";
+  try {
+    const r = await api("/api/check", { text });
+    if (mySeq !== seq) return;          // a newer request superseded this one
+    issues = r.issues;
+    renderBackdrop(text);
+    renderIssues();
+    status.textContent = issues.length ? "" : "✓";
+  } catch (e) {
+    status.textContent = "error: " + e.message;
+  }
+}
+
+function scheduleCheck() {
+  clearTimeout(timer);
+  timer = setTimeout(check, 350);
+}
+
+editor.addEventListener("input", () => {
+  renderBackdrop(editor.value.length ? editor.value : "");  // keep layers in sync
+  scheduleCheck();
+});
+editor.addEventListener("scroll", () => { backdrop.scrollTop = editor.scrollTop; });
+
+api("/api/stats").then(r => { statsEl.textContent = r.words + " words in lexicon"; });
+check();
+</script>
+</body>
+</html>

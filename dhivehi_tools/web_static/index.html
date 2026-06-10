@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="dv" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1565c0">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Dhivehi Tools</title>
+<style>
+  @font-face {
+    font-family: "MV Typer";
+    src: url("fonts/mvtyper.ttf") format("truetype");
+    font-display: swap;
+  }
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1c2430; --muted: #67738a;
+    --line: #dde2ea; --accent: #1565c0; --accent-ink: #ffffff;
+    --err: rgba(229, 57, 53, .28); --warn: rgba(251, 140, 0, .30);
+    --style: rgba(21, 101, 192, .22); --ctx: rgba(0, 137, 123, .26);
+    --swap: rgba(46, 125, 50, .25);
+    --th-size: 23px;
+    --th-font: "MV Typer", "MV Boli", "Faruma", "Noto Sans Thaana", sans-serif;
+  }
+  [data-theme="dark"] {
+    --bg: #11151c; --panel: #1a2029; --ink: #e6e9ef; --muted: #8b95a7;
+    --line: #2a3342; --accent: #4d9fff; --accent-ink: #0c1117;
+    --err: rgba(255, 99, 92, .35); --warn: rgba(255, 167, 38, .35);
+    --style: rgba(100, 168, 255, .30); --ctx: rgba(38, 198, 218, .30);
+    --swap: rgba(102, 187, 106, .32);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font-family: "Segoe UI", system-ui, sans-serif;
+         transition: background .2s, color .2s; }
+  .thaana, textarea, .backdrop, .word, .outbox, #dictQ, #pop .word, #kbd button.key {
+    font-family: var(--th-font);
+  }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+           padding: 10px 18px; background: var(--panel);
+           border-bottom: 1px solid var(--line);
+           position: sticky; top: 0; z-index: 30; }
+  header h1 { font-size: 17px; margin: 0; white-space: nowrap; }
+  header .stats { color: var(--muted); font-size: 12px;
+                  margin-inline-start: auto; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button { border: 0; background: transparent; padding: 7px 14px;
+               font-size: 14px; cursor: pointer; border-radius: 8px;
+               color: var(--muted); }
+  nav button.active { background: var(--accent); color: var(--accent-ink); }
+  .hctl { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+          color: var(--muted); font-size: 12px; }
+  .hctl label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .iconbtn { border: 1px solid var(--line); background: var(--panel);
+             color: var(--ink); border-radius: 8px; padding: 4px 9px;
+             cursor: pointer; font-size: 14px; }
+  #sizeRange { width: 70px; }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 16px 18px 24px; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  .cols { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+
+  .editor-wrap { position: relative; background: var(--panel);
+                 border: 1px solid var(--line); border-radius: 10px;
+                 overflow: hidden; }
+  .backdrop, textarea {
+    direction: rtl; font-size: var(--th-size); line-height: 2.1;
+    padding: 16px 18px; width: 100%; height: 380px;
+    white-space: pre-wrap; word-wrap: break-word; overflow-y: auto;
+  }
+  .backdrop { position: absolute; inset: 0; color: transparent;
+              pointer-events: none; border: 0; margin: 0; }
+  .backdrop mark { color: transparent; border-radius: 4px; }
+  .backdrop mark.structure, .backdrop mark.error { background: var(--err); }
+  .backdrop mark.unknown, .backdrop mark.warning { background: var(--warn); }
+  .backdrop mark.style { background: var(--style); }
+  .backdrop mark.context { background: var(--ctx); }
+  textarea { position: relative; background: transparent; border: 0;
+             resize: vertical; outline: none; color: var(--ink); display: block; }
+  .foot { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+          padding: 8px 14px; border-top: 1px solid var(--line);
+          color: var(--muted); font-size: 12px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .spin { margin-inline-start: auto; }
+
+  .cards { display: flex; flex-direction: column; gap: 9px; }
+  .cards h2 { font-size: 13px; margin: 0; color: var(--muted); font-weight: 600; }
+  .filters { display: flex; gap: 5px; flex-wrap: wrap; }
+  .fchip { border: 1px solid var(--line); background: var(--panel);
+           color: var(--muted); border-radius: 12px; padding: 2px 11px;
+           font-size: 12px; cursor: pointer; }
+  .fchip.on { background: var(--accent); color: var(--accent-ink);
+              border-color: var(--accent); }
+  .card { background: var(--panel); border: 1px solid var(--line);
+          border-radius: 10px; padding: 9px 12px; cursor: pointer; }
+  .card:hover { border-color: var(--accent); }
+  .card .word { font-size: 20px; }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 10px;
+           color: #fff; margin-inline-start: 7px; vertical-align: middle; }
+  .badge.structure, .badge.error { background: #e53935; }
+  .badge.unknown, .badge.warning { background: #fb8c00; }
+  .badge.style { background: #1565c0; }
+  .badge.context { background: #00897b; }
+  .card .msg, #pop .msg { color: var(--muted); font-size: 12px;
+                          margin-top: 3px; font-family: var(--th-font); }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .chip { border: 1px solid var(--line); background: var(--bg);
+          color: var(--accent); border-radius: 13px; padding: 3px 12px;
+          font-size: 17px; cursor: pointer; font-family: var(--th-font); }
+  .chip:hover { background: var(--accent); color: var(--accent-ink); }
+  .chip.plain { font-family: "Segoe UI", sans-serif; font-size: 11px;
+                color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13px; padding: 16px;
+           text-align: center; background: var(--panel);
+           border: 1px dashed var(--line); border-radius: 10px; }
+
+  .pp-controls { display: flex; align-items: center; gap: 12px;
+                 margin: 10px 0; flex-wrap: wrap; color: var(--muted);
+                 font-size: 13px; }
+  .btn { border: 0; background: var(--accent); color: var(--accent-ink);
+         padding: 8px 16px; border-radius: 8px; font-size: 13px;
+         cursor: pointer; }
+  .btn.alt { background: var(--panel); color: var(--accent);
+             border: 1px solid var(--accent); }
+  .outbox { background: var(--panel); border: 1px solid var(--line);
+            border-radius: 10px; padding: 14px 16px; min-height: 110px;
+            font-size: var(--th-size); line-height: 2.1; direction: rtl;
+            white-space: pre-wrap; word-wrap: break-word; }
+  .outbox .sw { background: var(--swap); border-radius: 4px; cursor: pointer; }
+  .outbox .sw.unused { background: transparent;
+                       border-bottom: 2px dotted #2e7d32; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  #dictQ { flex: 1; min-width: 220px; font-size: 21px; padding: 8px 14px;
+           border: 1px solid var(--line); border-radius: 8px;
+           background: var(--panel); color: var(--ink); outline: none;
+           direction: rtl; }
+
+  /* popover */
+  #pop { position: fixed; z-index: 60; background: var(--panel);
+         border: 1px solid var(--line); border-radius: 10px;
+         box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 10px 12px;
+         max-width: 330px; display: none; }
+  #pop .word { font-size: 20px; }
+  #pop .defs { font-family: var(--th-font); font-size: 15px;
+               color: var(--muted); margin-top: 5px; max-height: 150px;
+               overflow-y: auto; }
+
+  /* on-screen keyboard */
+  #kbd { position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+         background: var(--panel); border-top: 1px solid var(--line);
+         padding: 6px 8px 10px; display: none; }
+  #kbd.open { display: block; }
+  #kbd .krow { display: flex; justify-content: center; gap: 4px;
+               margin-top: 4px; direction: rtl; }
+  #kbd button { border: 1px solid var(--line); background: var(--bg);
+                color: var(--ink); border-radius: 6px; min-width: 34px;
+                padding: 7px 4px; font-size: 18px; cursor: pointer; }
+  #kbd button:active { background: var(--accent); color: var(--accent-ink); }
+  #kbd button.wide { min-width: 90px; font-size: 13px; }
+
+  body.embed header, body.embed #kbd { display: none !important; }
+  body.embed main { padding: 8px; }
+
+  @media (max-width: 700px) {
+    .cols { grid-template-columns: 1fr; }
+    header { position: static; }
+    nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+          background: var(--panel); border-top: 1px solid var(--line);
+          justify-content: space-around; padding: 6px 4px;
+          gap: 0; }
+    nav button { font-size: 12px; padding: 8px 10px; }
+    body { padding-bottom: 58px; }
+    .backdrop, textarea { height: 280px; }
+    #kbd { bottom: 52px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 data-i18n="appTitle">Dhivehi Tools</h1>
+  <nav>
+    <button data-tab="write" class="active" data-i18n="tabWrite">Write</button>
+    <button data-tab="para" data-i18n="tabPara">Paraphrase</button>
+    <button data-tab="dict" data-i18n="tabDict">Dictionary</button>
+    <button data-tab="conv" data-i18n="tabConv">Convert</button>
+  </nav>
+  <span class="hctl">
+    <label><input type="checkbox" id="imeToggle">
+      <span data-i18n="latin">Latin typing</span></label>
+    <button class="iconbtn" id="kbdToggle" title="Thaana keyboard">⌨</button>
+    <button class="iconbtn" id="themeToggle" title="theme">🌙</button>
+    <button class="iconbtn" id="langToggle" title="UI language">ދވ</button>
+    <input type="range" id="sizeRange" min="18" max="34" value="23"
+           title="font size">
+  </span>
+  <span class="stats" id="stats"></span>
+</header>
+<main>
+
+  <!-- ===================== WRITE (spelling + grammar + context) ============ -->
+  <section class="tab active" id="tab-write">
+    <div class="cols">
+      <div>
+        <div class="editor-wrap">
+          <div class="backdrop" id="writeBack"></div>
+          <textarea id="writeEd" spellcheck="false" lang="dv">މިއަދު މޫސުން ރަނގަޅެވެ. އަހަރެން ދިވެހ ބަސް ދަސްކުރަނީ އެވެ. އެންމެ ބޯޑު ދޯނި އޮތީ ފަޅުގަ , އެވެ.</textarea>
+        </div>
+        <div class="foot">
+          <span><span class="dot" style="background:var(--err)"></span>
+            <span data-i18n="legendErr">error</span></span>
+          <span><span class="dot" style="background:var(--warn)"></span>
+            <span data-i18n="legendWarn">warning</span></span>
+          <span><span class="dot" style="background:var(--style)"></span>
+            <span data-i18n="legendStyle">style</span></span>
+          <span><span class="dot" style="background:var(--ctx)"></span>
+            <span data-i18n="legendCtx">context</span></span>
+          <span id="counter"></span>
+          <span class="spin" id="writeStatus"></span>
+        </div>
+        <div class="hint" data-i18n="writeHint">Click a highlighted word for
+          suggestions · double-click any word for its meaning</div>
+      </div>
+      <aside class="cards">
+        <h2 id="writeTitle" data-i18n="issues">Issues</h2>
+        <div class="filters" id="writeFilters">
+          <button class="fchip on" data-f="all" data-i18n="fAll">All</button>
+          <button class="fchip" data-f="spell" data-i18n="fSpell">Spelling</button>
+          <button class="fchip" data-f="grammar" data-i18n="fGrammar">Grammar</button>
+          <button class="fchip" data-f="context" data-i18n="fContext">Context</button>
+        </div>
+        <div id="writeList"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== PARAPHRASE ===================== -->
+  <section class="tab" id="tab-para">
+    <div class="editor-wrap">
+      <textarea id="ppIn" spellcheck="false" lang="dv" style="height:150px"
+        placeholder="ޕެރަފްރޭޒް ކުރާނެ ލިޔުން މިތާ ލިޔުއްވާ...">މި ރަށުގެ މީހުން ވަރަށް ހަހަރުވެތި ބައެކެވެ.</textarea>
+    </div>
+    <div class="pp-controls">
+      <button class="btn" id="ppGo" data-i18n="paraBtn">Paraphrase</button>
+      <button class="btn alt" id="ppShuffle" data-i18n="regen">↻ Regenerate</button>
+      <label><span data-i18n="strength">strength</span>
+        <input type="range" id="ppAgg" min="0" max="100" value="60"></label>
+      <label><input type="checkbox" id="ppModern" checked>
+        <span data-i18n="modern">modern words only</span></label>
+      <button class="btn alt" id="ppCopy" data-i18n="copy">Copy result</button>
+      <span id="ppStatus"></span>
+    </div>
+    <div class="outbox" id="ppOut" dir="rtl"></div>
+    <div class="hint" data-i18n="paraHint">Green words were swapped with a
+      dictionary synonym — click any highlighted or dotted word to cycle
+      alternatives.</div>
+  </section>
+
+  <!-- ===================== DICTIONARY ===================== -->
+  <section class="tab" id="tab-dict">
+    <div class="pp-controls">
+      <input type="text" id="dictQ" lang="dv" placeholder="ބަހެއް ހޯއްދަވާ...">
+      <button class="btn" id="dictGo" data-i18n="lookup">Look up</button>
+      <button class="btn alt" id="dictRev" data-i18n="revsearch">Reverse search</button>
+      <span id="dictStatus"></span>
+    </div>
+    <div class="cards" id="dictOut"></div>
+  </section>
+
+  <!-- ===================== CONVERT ===================== -->
+  <section class="tab" id="tab-conv">
+    <div class="cols">
+      <div>
+        <h2 style="font-size:14px;color:var(--muted)" data-i18n="translit">
+          Transliteration</h2>
+        <div class="editor-wrap">
+          <textarea id="trIn" spellcheck="false" style="height:120px"
+            data-i18n-ph="trPh"
+            placeholder="Type Latin (dhivehi) or Thaana...">miadhu moosun varah reethi</textarea>
+        </div>
+        <div class="pp-controls">
+          <button class="btn" id="trToThaana" data-i18n="toThaana">→ Thaana</button>
+          <button class="btn alt" id="trToLatin" data-i18n="toLatin">→ Latin</button>
+        </div>
+        <div class="outbox" id="trOut" style="min-height:80px"></div>
+      </div>
+      <div>
+        <h2 style="font-size:14px;color:var(--muted)" data-i18n="register">
+          Register (formal ⇄ informal)</h2>
+        <div class="editor-wrap">
+          <textarea id="rgIn" spellcheck="false" lang="dv" style="height:120px">އަހަރެން މިއަދު މާލެ ދިޔައިން. މޫސުން ވަރަށް ރީތި.</textarea>
+        </div>
+        <div class="pp-controls">
+          <button class="btn" id="rgFormal" data-i18n="formal">→ Formal (-އެވެ)</button>
+          <button class="btn alt" id="rgInformal" data-i18n="informal">→ Informal</button>
+        </div>
+        <div class="outbox" id="rgOut" style="min-height:80px"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="pop"></div>
+<div id="kbd"></div>
+
+<script src="dhivehi.js"></script>
+<script>
+"use strict";
+const params = new URLSearchParams(location.search);
+const API_BASE = params.get("api") ||
+  ((location.protocol === "http:" || location.protocol === "https:") && location.host
+    ? "" : "http://127.0.0.1:8765");
+const $ = id => document.getElementById(id);
+const THAANA_RE = /[ހ-ޱ]+/g;
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+async function api(path, body) {
+  const res = await fetch(API_BASE + path, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+/* ============ i18n ============ */
+const I18N = {
+  en: {
+    appTitle: "Dhivehi Tools",
+    badges: { structure: "structure", unknown: "unknown", context: "context",
+              error: "error", warning: "warning", style: "style" },
+    msgs: {},   // English: show server messages as-is
+    tabWrite: "Write", tabPara: "Paraphrase", tabDict: "Dictionary",
+    tabConv: "Convert", latin: "Latin typing", issues: "Issues",
+    fAll: "All", fSpell: "Spelling", fGrammar: "Grammar", fContext: "Context",
+    legendErr: "error", legendWarn: "warning", legendStyle: "style",
+    legendCtx: "context", paraBtn: "Paraphrase", regen: "↻ Regenerate",
+    strength: "strength", modern: "modern words only", copy: "Copy result",
+    lookup: "Look up", revsearch: "Reverse search",
+    translit: "Transliteration", register: "Register (formal ⇄ informal)",
+    toThaana: "→ Thaana", toLatin: "→ Latin",
+    formal: "→ Formal (-އެވެ)", informal: "→ Informal",
+    writeHint: "Click a highlighted word for suggestions · double-click any word for its meaning",
+    paraHint: "Green words were swapped with a dictionary synonym — click any highlighted or dotted word to cycle alternatives.",
+    checking: "checking…", noIssues: "No issues found ✓",
+    addDict: "+ add to dictionary", define: "meaning", apply: "apply",
+    words: "words", chars: "chars", sents: "sentences", per100: "issues/100w",
+    noEntry: "No entry found", searching: "searching…",
+    copied: "copied ✓", working: "working…", senses: "sense(s)",
+    trPh: "Type Latin (dhivehi) or Thaana...",
+    swapped: (a, b) => a + " of " + b + " swappable words changed",
+    results: n => n + " result(s)",
+  },
+  dv: {
+    appTitle: "ދިވެހި ޓޫލްސް",
+    badges: { structure: "އޮނިގަނޑު", unknown: "ރަދީފުގައި ނެތް",
+              context: "ކޮންޓެކްސްޓް", error: "ކުށް",
+              warning: "އިންޒާރު", style: "ސްޓައިލް" },
+    msgs: {
+      "thaana-comma": "ދިވެހި ލިޔުމުގައި ތާނަ ކޮމާ (،) ބޭނުންކުރައްވާ",
+      "thaana-question": "ތާނަ ސުވާލު ފާހަގަ (؟) ބޭނުންކުރައްވާ",
+      "thaana-semicolon": "ތާނަ ސެމިކޯލަން (؛) ބޭނުންކުރައްވާ",
+      "space-before-punct": "ފާހަގައިގެ ކުރިން ހުސްތަން ނުބަހައްޓަވާ",
+      "space-after-punct": "ފާހަގައިގެ ފަހުގައި ހުސްތަނެއް ބަހައްޓަވާ",
+      "double-space": "އެއް ހުސްތަނަށްވުރެ ގިނަވެފައި",
+      "repeated-word": "ބަސް ތަކުރާރުވެފައި",
+      "detached-eve": "އެވެ ލިޔާނީ ކުރީ ބަހާ ގުޅުވައިގެން",
+      "formal-register": "ލިޔުން ރަސްމީ (-އެވެ) ބަހުރުވައިގައި — މި ޖުމްލަ އެގޮތަށް ނުނިމޭ",
+      "long-sentence": "ޖުމްލަ މާ ދިގު — ބައިކޮށްލައްވާ",
+      "missing-fili": "އަކުރަށް ފިލި ނުވަތަ ސުކުން ބޭނުންވޭ",
+      "orphan-fili": "އަކުރެއް ނެތި ފިއްޔެއް އެބައިން",
+      "unknown": "މި ބަސް ރަދީފަކު ނެތް",
+      "context": "ޖުމްލައާ ނުގުޅޭހެން ހީވޭ — ރަނގަޅު ބަސް ބައްލަވާ",
+    },
+    tabWrite: "ލިޔުން", tabPara: "ޕެރަފްރޭޒް", tabDict: "ރަދީފު",
+    tabConv: "ބަދަލުކުރުން", latin: "ލެޓިން ލިޔުން", issues: "މައްސަލަތައް",
+    fAll: "ހުރިހާ", fSpell: "އިމްލާ", fGrammar: "ގަވާއިދު", fContext: "ކޮންޓެކްސްޓް",
+    legendErr: "ކުށް", legendWarn: "އިންޒާރު", legendStyle: "ސްޓައިލް",
+    legendCtx: "ކޮންޓެކްސްޓް", paraBtn: "ޕެރަފްރޭޒްކުރޭ", regen: "↻ އަލުން",
+    strength: "މިންވަރު", modern: "ޒަމާނީ ބަސްތައް އެކަނި", copy: "ކޮޕީ",
+    lookup: "ހޯދާ", revsearch: "މާނައިން ހޯދާ",
+    translit: "ތާނަ ⇄ ލެޓިން", register: "ރަސްމީ ⇄ އާދައިގެ",
+    toThaana: "→ ތާނަ", toLatin: "→ ލެޓިން",
+    formal: "→ ރަސްމީ (-އެވެ)", informal: "→ އާދައިގެ",
+    writeHint: "ފާހަގަކުރި ބަހަކަށް ފިއްތަވާ — އިޞްލާޙު ފެންނާނެ · ކޮންމެ ބަހެއްގެ މާނަ ބަލަން ދެފަހަރު ފިއްތަވާ",
+    paraHint: "ފެހި ބަސްތައް ބަދަލުކުރެވިފައި — ފިއްތަވައިގެން އެހެން ބަސްތައް ބައްލަވާ",
+    checking: "ބަލަނީ…", noIssues: "މައްސަލައެއް ނެތް ✓",
+    addDict: "+ ރަދީފަށް އިތުރުކުރޭ", define: "މާނަ", apply: "ބަދަލުކުރޭ",
+    words: "ބަސް", chars: "އަކުރު", sents: "ޖުމްލަ", per100: "މައްސަލަ/100",
+    noEntry: "ނުފެނުނު", searching: "ހޯދަނީ…",
+    copied: "ކޮޕީވެއްޖެ ✓", working: "ހަދަނީ…", senses: "މާނަ",
+    trPh: "ލެޓިން (dhivehi) ނުވަތަ ތާނައިން ލިޔުއްވާ...",
+    swapped: (a, b) => b + " ން " + a + " ބަސް ބަދަލުކުރެވުނު",
+    results: n => n + " ނަތީޖާ",
+  },
+};
+let lang = localStorage.getItem("dvtools-lang") || "dv";   // Dhivehi first
+function t(key) { return I18N[lang][key]; }
+function badgeFor(it) {
+  // statuses (structure/unknown/context) and severities (error/warning/style)
+  const key = it.severity || it.status;
+  return I18N[lang].badges[key] || it.rule || key;
+}
+function msgFor(it) {
+  // server messages are English; in Dhivehi mode use the rule translation
+  if (lang === "dv") {
+    const key = it.rule || it.status;
+    if (I18N.dv.msgs[key]) return I18N.dv.msgs[key];
+  }
+  return it.message || "";
+}
+function errFor(e) {
+  return (lang === "dv" && I18N.dv.msgs[e.code]) || e.message;
+}
+function applyLang() {
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const v = I18N[lang][el.dataset.i18n];
+    if (typeof v === "string") el.textContent = v;
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => {
+    const v = I18N[lang][el.dataset.i18nPh];
+    if (typeof v === "string") el.placeholder = v;
+  });
+  document.title = t("appTitle");
+  $("langToggle").textContent = lang === "en" ? "ދވ" : "EN";
+}
+$("langToggle").addEventListener("click", () => {
+  lang = lang === "en" ? "dv" : "en";
+  localStorage.setItem("dvtools-lang", lang);
+  applyLang(); renderWriteList(); updateCounter();
+});
+
+/* ============ theme ============ */
+let theme = localStorage.getItem("dvtools-theme") ||
+  (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  $("themeToggle").textContent = theme === "dark" ? "☀" : "🌙";
+}
+$("themeToggle").addEventListener("click", () => {
+  theme = theme === "dark" ? "light" : "dark";
+  localStorage.setItem("dvtools-theme", theme);
+  applyTheme();
+});
+applyTheme();
+
+/* ============ font size ============ */
+const savedSize = localStorage.getItem("dvtools-size");
+if (savedSize) {
+  $("sizeRange").value = savedSize;
+  document.documentElement.style.setProperty("--th-size", savedSize + "px");
+}
+$("sizeRange").addEventListener("input", () => {
+  const v = $("sizeRange").value;
+  document.documentElement.style.setProperty("--th-size", v + "px");
+  localStorage.setItem("dvtools-size", v);
+});
+
+/* ============ tabs ============ */
+function showTab(name) {
+  document.querySelectorAll("nav button").forEach(b =>
+    b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".tab").forEach(tb =>
+    tb.classList.toggle("active", tb.id === "tab-" + name));
+}
+document.querySelectorAll("nav button").forEach(btn =>
+  btn.addEventListener("click", () => showTab(btn.dataset.tab)));
+
+/* ============ unified Write tab ============ */
+const writeEd = $("writeEd"), writeBack = $("writeBack");
+let writeIssues = [], writeFilter = "all", writeTimer = null, writeSeq = 0;
+
+function srcOf(it) {
+  if (it.severity) return "grammar";
+  return it.status === "context" ? "context" : "spell";
+}
+function clsOf(it) { return it.severity || it.status; }
+
+async function checkWrite() {
+  const mySeq = ++writeSeq;
+  const text = writeEd.value;
+  $("writeStatus").textContent = t("checking");
+  try {
+    const [sp, gr] = await Promise.all([
+      api("/api/spell/check", { text }),
+      api("/api/grammar/check", { text }),
+    ]);
+    if (mySeq !== writeSeq) return;
+    writeIssues = [...sp.issues, ...gr.issues];
+    writeIssues.sort((a, b) => a.start - b.start || a.end - b.end);
+    renderWriteBack();
+    renderWriteList();
+    updateCounter();
+    $("writeStatus").textContent = writeIssues.length ? "" : "✓";
+  } catch (e) { $("writeStatus").textContent = "error: " + e.message; }
+}
+
+function renderWriteBack() {
+  const text = writeEd.value;
+  let html = "", pos = 0;
+  writeIssues.forEach((it, i) => {
+    if (it.start < pos) return;
+    html += escapeHtml(text.slice(pos, it.start));
+    html += '<mark class="' + clsOf(it) + '" data-i="' + i + '">' +
+            escapeHtml(text.slice(it.start, it.end)) + "</mark>";
+    pos = it.end;
+  });
+  html += escapeHtml(text.slice(pos));
+  writeBack.innerHTML = html + "\n";
+  writeBack.scrollTop = writeEd.scrollTop;
+}
+
+function issueCard(it) {
+  const card = document.createElement("div");
+  card.className = "card";
+  const text = writeEd.value;
+  const frag = it.word !== undefined ? it.word
+             : text.slice(it.start, it.end).trim() || "·";
+  const cls = clsOf(it);
+  let inner = '<span class="word"><bdi>' + escapeHtml(frag) + "</bdi></span>" +
+              '<span class="badge ' + cls + '" title="' +
+              escapeHtml(it.rule || it.status) + '">' +
+              escapeHtml(badgeFor(it)) + "</span>";
+  const msgDir = lang === "dv" ? "" : ' style="direction:ltr;text-align:left"';
+  (it.errors || []).forEach(e => {
+    inner += '<div class="msg"' + msgDir + '>' + escapeHtml(errFor(e)) +
+             "</div>"; });
+  const m = msgFor(it);
+  if (m) inner += '<div class="msg"' + msgDir + '>' + escapeHtml(m) + "</div>";
+  inner += '<div class="chips">';
+  (it.suggestions || []).forEach(s => {
+    inner += '<button class="chip" data-w="' + escapeHtml(s.word) + '">' +
+             escapeHtml(s.word) + "</button>"; });
+  if (it.replacement !== undefined)
+    inner += '<button class="chip" data-w="' + escapeHtml(it.replacement) +
+             '">' + (escapeHtml(it.replacement.trim()) || t("apply")) +
+             "</button>";
+  if (it.status === "unknown")
+    inner += '<button class="chip plain" data-add="1">' + t("addDict") +
+             "</button>";
+  inner += "</div>";
+  card.innerHTML = inner;
+  card.addEventListener("click", async ev => {
+    const btn = ev.target.closest("button.chip");
+    if (btn && btn.dataset.w !== undefined) applyFix(it, btn.dataset.w);
+    else if (btn && btn.dataset.add) {
+      await api("/api/spell/add", { words: [it.word] });
+      refreshStats(); checkWrite();
+    } else {
+      writeEd.focus();
+      writeEd.setSelectionRange(it.start, it.end);
+    }
+  });
+  return card;
+}
+
+function renderWriteList() {
+  const list = $("writeList");
+  const counts = { all: writeIssues.length, spell: 0, grammar: 0, context: 0 };
+  writeIssues.forEach(it => counts[srcOf(it)]++);
+  document.querySelectorAll("#writeFilters .fchip").forEach(ch => {
+    const f = ch.dataset.f;
+    ch.textContent = t({ all: "fAll", spell: "fSpell", grammar: "fGrammar",
+                         context: "fContext" }[f]) +
+                     (counts[f] ? " " + counts[f] : "");
+    ch.classList.toggle("on", writeFilter === f);
+  });
+  $("writeTitle").textContent = t("issues") +
+    (writeIssues.length ? " (" + writeIssues.length + ")" : "");
+  const visible = writeIssues.filter(
+    it => writeFilter === "all" || srcOf(it) === writeFilter);
+  list.innerHTML = "";
+  if (!visible.length) {
+    list.innerHTML = '<div class="empty">' + t("noIssues") + "</div>";
+    return;
+  }
+  visible.forEach(it => list.appendChild(issueCard(it)));
+}
+
+$("writeFilters").addEventListener("click", ev => {
+  const ch = ev.target.closest(".fchip");
+  if (!ch) return;
+  writeFilter = ch.dataset.f;
+  renderWriteList();
+});
+
+function applyFix(it, replacement) {
+  const text = writeEd.value;
+  if (it.word !== undefined && text.slice(it.start, it.end) !== it.word) {
+    checkWrite(); return;
+  }
+  writeEd.value = text.slice(0, it.start) + replacement + text.slice(it.end);
+  hidePop();
+  checkWrite();
+}
+
+function updateCounter() {
+  const text = writeEd.value;
+  const words = (text.match(THAANA_RE) || []).length;
+  const sents = text.split(/[.!؟\n]+/).filter(s => THAANA_RE.test(s)).length;
+  const per100 = words ? (writeIssues.length / words * 100).toFixed(1) : "0";
+  $("counter").textContent =
+    words + " " + t("words") + " · " + text.length + " " + t("chars") +
+    " · " + sents + " " + t("sents") + " · " + per100 + " " + t("per100");
+}
+
+writeEd.addEventListener("input", () => {
+  renderWriteBackRaw();
+  clearTimeout(writeTimer);
+  writeTimer = setTimeout(checkWrite, 350);
+});
+function renderWriteBackRaw() {
+  writeBack.textContent = writeEd.value + "\n";
+  writeBack.scrollTop = writeEd.scrollTop;
+}
+writeEd.addEventListener("scroll", () => {
+  writeBack.scrollTop = writeEd.scrollTop; });
+
+/* ============ popover (inline suggestions + definitions) ============ */
+const pop = $("pop");
+function showPopAt(x, y, html) {
+  pop.innerHTML = html;
+  pop.style.display = "block";
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(x - w / 2, innerWidth - w - 8)) + "px";
+  pop.style.top = (y + h + 16 > innerHeight ? y - h - 10 : y + 10) + "px";
+}
+function hidePop() { pop.style.display = "none"; pop.innerHTML = ""; }
+document.addEventListener("click", ev => {
+  if (!pop.contains(ev.target) && ev.target !== writeEd) hidePop();
+});
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape") hidePop(); });
+
+function issueAt(pos) {
+  for (let i = 0; i < writeIssues.length; i++)
+    if (writeIssues[i].start <= pos && pos <= writeIssues[i].end) return i;
+  return -1;
+}
+function wordAt(pos) {
+  const text = writeEd.value;
+  let a = pos, b = pos;
+  const isTh = ch => ch && /[ހ-ޱ]/.test(ch);
+  while (a > 0 && isTh(text[a - 1])) a--;
+  while (b < text.length && isTh(text[b])) b++;
+  return a < b ? { word: text.slice(a, b), start: a, end: b } : null;
+}
+
+writeEd.addEventListener("click", ev => {
+  const idx = issueAt(writeEd.selectionStart);
+  if (idx < 0) { hidePop(); return; }
+  const it = writeIssues[idx];
+  const frag = it.word !== undefined ? it.word
+             : writeEd.value.slice(it.start, it.end).trim();
+  let html = '<span class="word"><bdi>' + escapeHtml(frag) + "</bdi></span>" +
+             '<span class="badge ' + clsOf(it) + '" title="' +
+             escapeHtml(it.rule || it.status) + '">' +
+             escapeHtml(badgeFor(it)) + "</span>";
+  const pmsg = msgFor(it) ||
+               (it.errors || []).map(e => errFor(e)).join("; ");
+  if (pmsg)
+    html += '<div class="msg"' +
+            (lang === "dv" ? "" :
+             ' style="direction:ltr;text-align:left"') + '>' +
+            escapeHtml(pmsg) + "</div>";
+  html += '<div class="chips">';
+  (it.suggestions || []).forEach(s => {
+    html += '<button class="chip" data-w="' + escapeHtml(s.word) + '">' +
+            escapeHtml(s.word) + "</button>"; });
+  if (it.replacement !== undefined)
+    html += '<button class="chip" data-w="' + escapeHtml(it.replacement) +
+            '">' + (escapeHtml(it.replacement.trim()) || t("apply")) +
+            "</button>";
+  if (it.status === "unknown")
+    html += '<button class="chip plain" data-add="1">' + t("addDict") +
+            "</button>";
+  html += '<button class="chip plain" data-def="1">' + t("define") +
+          "</button></div><div class='defs'></div>";
+  showPopAt(ev.clientX, ev.clientY, html);
+  pop.onclick = async pe => {
+    const btn = pe.target.closest("button.chip");
+    if (!btn) return;
+    if (btn.dataset.w !== undefined) applyFix(it, btn.dataset.w);
+    else if (btn.dataset.add) {
+      await api("/api/spell/add", { words: [it.word] });
+      hidePop(); refreshStats(); checkWrite();
+    } else if (btn.dataset.def) loadDefs(frag);
+  };
+});
+
+writeEd.addEventListener("dblclick", ev => {
+  const w = wordAt(writeEd.selectionStart);
+  if (!w) return;
+  showPopAt(ev.clientX, ev.clientY,
+    '<span class="word"><bdi>' + escapeHtml(w.word) +
+    '</bdi></span><div class="defs">…</div>');
+  loadDefs(w.word);
+});
+
+async function loadDefs(word) {
+  const box = pop.querySelector(".defs");
+  if (!box) return;
+  box.textContent = "…";
+  try {
+    const r = await api("/api/define", { q: word });
+    if (r.definitions.length)
+      box.innerHTML = r.definitions.map(d =>
+        "<div><bdi>" + escapeHtml(d) + "</bdi></div>").join("");
+    else if (r.related.length)
+      box.innerHTML = r.related.slice(0, 3).map(rel =>
+        "<div><bdi><b>" + escapeHtml(rel.word) + "</b> — " +
+        escapeHtml(rel.definition) + "</bdi></div>").join("");
+    else box.textContent = t("noEntry");
+  } catch (e) { box.textContent = "error: " + e.message; }
+}
+
+/* ============ paraphrase ============ */
+let ppSeed = 1, ppData = null;
+function renderParaphrase() {
+  const out = $("ppOut");
+  if (!ppData) { out.textContent = ""; return; }
+  const text = ppData.text;
+  let html = "", pos = 0;
+  ppData.replacements.forEach((r, i) => {
+    html += escapeHtml(text.slice(pos, r.start));
+    html += '<span class="' + (r.used ? "sw" : "sw unused") + '" data-i="' +
+            i + '" title="' + escapeHtml(r.original) + '">' +
+            escapeHtml(text.slice(r.start, r.end)) + "</span>";
+    pos = r.end;
+  });
+  out.innerHTML = html + escapeHtml(text.slice(pos));
+  $("ppStatus").textContent = t("swapped")(ppData.swapped, ppData.swappable);
+}
+function cycleChoice(idx) {
+  const r = ppData.replacements[idx];
+  const ring = [r.original, ...r.choices];
+  const current = r.used === null ? r.original : r.used;
+  const next = ring[(ring.indexOf(current) + 1) % ring.length];
+  const delta = next.length - (r.end - r.start);
+  ppData.text = ppData.text.slice(0, r.start) + next + ppData.text.slice(r.end);
+  r.end = r.start + next.length;
+  r.used = next === r.original ? null : next;
+  ppData.replacements.forEach(o => {
+    if (o.start > r.start) { o.start += delta; o.end += delta; } });
+  ppData.swapped = ppData.replacements.filter(o => o.used).length;
+  renderParaphrase();
+}
+$("ppOut").addEventListener("click", ev => {
+  const span = ev.target.closest("span.sw");
+  if (span) cycleChoice(+span.dataset.i);
+});
+async function doParaphrase() {
+  $("ppStatus").textContent = t("working");
+  try {
+    ppData = await api("/api/paraphrase", {
+      text: $("ppIn").value, aggressiveness: $("ppAgg").value / 100,
+      seed: ppSeed, modern_only: $("ppModern").checked,
+    });
+    renderParaphrase();
+  } catch (e) { $("ppStatus").textContent = "error: " + e.message; }
+}
+$("ppGo").addEventListener("click", doParaphrase);
+$("ppShuffle").addEventListener("click", () => { ppSeed++; doParaphrase(); });
+$("ppCopy").addEventListener("click", async () => {
+  if (!ppData) return;
+  try { await navigator.clipboard.writeText(ppData.text);
+        $("ppStatus").textContent = t("copied"); }
+  catch (e) { $("ppStatus").textContent = "copy failed"; }
+});
+
+/* ============ dictionary ============ */
+function dictCard(word, definition, onClick) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = '<span class="word"><bdi>' + escapeHtml(word) +
+    '</bdi></span><div class="word" style="font-size:16px;' +
+    'color:var(--muted);margin-top:4px"><bdi>' + escapeHtml(definition) +
+    "</bdi></div>";
+  if (onClick) card.addEventListener("click", onClick);
+  return card;
+}
+async function doLookup() {
+  const q = $("dictQ").value.trim();
+  if (!q) return;
+  $("dictStatus").textContent = t("searching");
+  try {
+    const r = await api("/api/define", { q });
+    const out = $("dictOut");
+    out.innerHTML = "";
+    r.definitions.forEach(d => out.appendChild(dictCard(q, d)));
+    r.related.forEach(rel => out.appendChild(
+      dictCard(rel.word, rel.definition,
+               () => { $("dictQ").value = rel.word; doLookup(); })));
+    if (!r.definitions.length && !r.related.length)
+      out.innerHTML = '<div class="empty">' + t("noEntry") + "</div>";
+    $("dictStatus").textContent =
+      r.definitions.length ? r.definitions.length + " " + t("senses") : "";
+  } catch (e) { $("dictStatus").textContent = "error: " + e.message; }
+}
+async function doReverse() {
+  const q = $("dictQ").value.trim();
+  if (!q) return;
+  $("dictStatus").textContent = t("searching");
+  try {
+    const r = await api("/api/reverse", { q });
+    const out = $("dictOut");
+    out.innerHTML = "";
+    r.results.forEach(hit => out.appendChild(
+      dictCard(hit.word, hit.definition,
+               () => { $("dictQ").value = hit.word; doLookup(); })));
+    if (!r.results.length)
+      out.innerHTML = '<div class="empty">' + t("noEntry") + "</div>";
+    $("dictStatus").textContent = t("results")(r.results.length);
+  } catch (e) { $("dictStatus").textContent = "error: " + e.message; }
+}
+$("dictGo").addEventListener("click", doLookup);
+$("dictRev").addEventListener("click", doReverse);
+$("dictQ").addEventListener("keydown", ev => {
+  if (ev.key === "Enter") doLookup(); });
+
+/* ============ convert ============ */
+async function translit(to) {
+  try {
+    const r = await api("/api/translit", { text: $("trIn").value, to });
+    $("trOut").textContent = r.text;
+    $("trOut").dir = to === "latin" ? "ltr" : "rtl";
+  } catch (e) { $("trOut").textContent = "error: " + e.message; }
+}
+$("trToThaana").addEventListener("click", () => translit("thaana"));
+$("trToLatin").addEventListener("click", () => translit("latin"));
+async function register(target) {
+  try {
+    const r = await api("/api/register", { text: $("rgIn").value, target });
+    $("rgOut").textContent = r.text;
+  } catch (e) { $("rgOut").textContent = "error: " + e.message; }
+}
+$("rgFormal").addEventListener("click", () => register("formal"));
+$("rgInformal").addEventListener("click", () => register("informal"));
+
+/* ============ Latin IME ============ */
+const imeOn = () => $("imeToggle").checked;
+if (window.DV) {
+  ["writeEd", "ppIn", "dictQ", "rgIn"].forEach(id =>
+    DV.attachIME($(id), imeOn));
+} else {
+  $("imeToggle").disabled = true;
+}
+
+/* ============ on-screen Thaana keyboard ============ */
+const KBD_ROWS = [
+  "ޕ ޖ ޗ ޏ ޔ ޓ ޒ ޑ ސ ގ".split(" "),
+  "ހ ށ ނ ރ ބ ޅ ކ އ ވ މ ފ ދ ތ ލ".split(" "),
+  "ޘ ޙ ޚ ޛ ޜ ޝ ޞ ޟ ޠ ޡ ޢ ޣ ޤ ޥ".split(" "),
+  "ަ ާ ި ީ ު ޫ ެ ޭ ޮ ޯ ް".split(" "),
+];
+let lastFocused = writeEd;
+["writeEd", "ppIn", "dictQ", "rgIn", "trIn"].forEach(id =>
+  $(id).addEventListener("focusin", () => { lastFocused = $(id); }));
+function buildKbd() {
+  const kbd = $("kbd");
+  KBD_ROWS.forEach(row => {
+    const div = document.createElement("div");
+    div.className = "krow";
+    row.forEach(ch => {
+      const b = document.createElement("button");
+      b.className = "key"; b.textContent = ch; b.dataset.ch = ch;
+      div.appendChild(b);
+    });
+    kbd.appendChild(div);
+  });
+  const ctl = document.createElement("div");
+  ctl.className = "krow";
+  ctl.innerHTML = '<button class="wide" data-ch=" ">␣</button>' +
+                  '<button class="wide" data-bs="1">⌫</button>';
+  kbd.appendChild(ctl);
+  kbd.addEventListener("mousedown", ev => ev.preventDefault());
+  kbd.addEventListener("click", ev => {
+    const b = ev.target.closest("button");
+    if (!b) return;
+    const el = lastFocused;
+    const a = el.selectionStart, z = el.selectionEnd;
+    if (b.dataset.bs) {
+      if (a === z && a > 0) {
+        el.value = el.value.slice(0, a - 1) + el.value.slice(z);
+        el.setSelectionRange(a - 1, a - 1);
+      } else {
+        el.value = el.value.slice(0, a) + el.value.slice(z);
+        el.setSelectionRange(a, a);
+      }
+    } else {
+      el.value = el.value.slice(0, a) + b.dataset.ch + el.value.slice(z);
+      el.setSelectionRange(a + 1, a + 1);
+    }
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.focus();
+  });
+}
+buildKbd();
+$("kbdToggle").addEventListener("click", () =>
+  $("kbd").classList.toggle("open"));
+
+/* ============ stats / boot ============ */
+async function refreshStats() {
+  try {
+    const r = await api("/api/stats");
+    $("stats").textContent = r.words.toLocaleString() + " · " +
+      r.synonyms.toLocaleString() + " · " + r.definitions.toLocaleString();
+    $("stats").title = r.words + " words, " + r.synonyms +
+      " synonyms, " + r.definitions + " definitions";
+  } catch (e) { /* offline against static host: fine */ }
+}
+
+if (params.has("embed")) document.body.classList.add("embed");
+if (params.get("tab")) showTab(params.get("tab"));
+
+if ("serviceWorker" in navigator &&
+    (location.protocol === "https:" || location.hostname === "127.0.0.1" ||
+     location.hostname === "localhost")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+applyLang();
+refreshStats();
+checkWrite();
+</script>
+</body>
+</html>

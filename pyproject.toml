@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dhivehi-tools"
+version = "0.3.0"
+description = "Offline Dhivehi (Thaana) language tools: spell checker, grammar checker, paraphraser, dictionary, transliterator"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+keywords = ["dhivehi", "thaana", "maldives", "spellcheck", "nlp"]
+classifiers = [
+    "Natural Language :: Divehi",
+    "Topic :: Text Processing :: Linguistic",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+dhivehi-tools = "dhivehi_tools.__main__:main"
+dhivehi-spell = "dhivehi_spell.__main__:main"
+
+[tool.setuptools]
+packages = ["dhivehi_spell", "dhivehi_tools"]
+
+[tool.setuptools.package-data]
+dhivehi_spell = ["data/*.tsv", "data/*.dat", "web_static/*.html"]
+dhivehi_tools = ["data/*.tsv", "web_static/*.html"]

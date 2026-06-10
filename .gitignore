@@ -1,0 +1,17 @@
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+
+# generated artifacts (rebuild with scripts/export_hunspell.py / export_web.py)
+dist/
+
+# raw corpus downloads (rebuild instructions in README)
+data_raw/
+
+# runtime user data
+user_words.tsv
+
+# tooling
+.claude/
